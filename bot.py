@@ -65,8 +65,8 @@ async def send_daily_history():
         events = await history_api.get_events_for_date(month, day)
 
         if events:
-            # Select 5 interesting events
-            selected_events = history_api.select_best_events(events, count=5)
+            # Select 10 interesting events
+            selected_events = history_api.select_best_events(events, count=10)
 
             # Generate Victorian-style commentary
             content = await ai_service.generate_victorian_commentary(selected_events)
@@ -119,8 +119,8 @@ async def on_ready():
     scheduler.add_job(
         send_daily_history,
         trigger=CronTrigger(
-            hour=10,
-            minute=0,
+            hour=12,
+            minute=10,
             timezone=tz
         ),
         id='daily_history',
@@ -131,7 +131,7 @@ async def on_ready():
     # Start scheduler
     if not scheduler.running:
         scheduler.start()
-        logger.info(f"Scheduler started - Daily history & water stops at 10:00 AM {TIMEZONE}")
+        logger.info(f"Scheduler started - Daily history & water stops at 12:10 {TIMEZONE}")
 
 @bot.command(name='test_daily')
 @commands.has_permissions(administrator=True)

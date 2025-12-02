@@ -67,7 +67,7 @@ class AIService:
 Historical events for today:
 {events_text}
 
-Write a diary entry covering these events (200-300 words total):
+Write a diary entry covering these events (400-500 words total):
 
 First paragraph: Introduce today's historical observations with characteristic Pooter earnestness
 Second-to-fourth paragraphs: Comment on each event briefly with:
@@ -97,7 +97,7 @@ Requirements:
 - End with an understated, meandering conclusion
 
 Style: Conversational, dry wit, tendency to ramble
-Length: 250-350 words
+Length: 500-600 words
 Voice: Educated but unpretentious, gently mocking
 
 CRITICAL: Base your entry ONLY on these verified historical facts. Do NOT add invented historical details."""
@@ -120,7 +120,7 @@ Requirements:
 
 Style: Dry, understated, conversational but with Victorian sensibility
 Tone: Gently mocking, observational, deadpan
-Length: 300-400 words total (Discord-friendly)
+Length: 600-800 words total (Discord-friendly)
 Voice: Educated but not stuffy, witty but not try-hard
 
 Avoid:
@@ -150,7 +150,7 @@ Do NOT add invented historical details. Your creativity should be in the COMMENT
                         "content": prompt
                     }
                 ],
-                max_tokens=600,  # Increased for multiple events
+                max_tokens=1000,  # Plenty of room for 10 events with commentary
                 temperature=0.8  # Some creativity but not too wild
             )
         

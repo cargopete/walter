@@ -4,12 +4,16 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for Playwright
+# Install system dependencies for Playwright and Docker CLI
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     wget \
     gnupg \
     ca-certificates \
+    curl \
+    && curl -fsSL https://get.docker.com -o get-docker.sh \
+    && sh get-docker.sh \
+    && rm get-docker.sh \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better layer caching

@@ -1,71 +1,101 @@
-import aiohttp
+import openai
+import os
 import asyncio
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
 import random
+import json
 
 logger = logging.getLogger('walter.history_api')
 
 class HistoryAPI:
     def __init__(self):
-        self.base_url = "https://history.muffinlabs.com/date"
-        self.session = None
+        self.api_key = os.getenv('OPENAI_API_KEY')
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY not found in environment variables")
+
+        openai.api_key = self.api_key
+        self.client = openai.OpenAI(api_key=self.api_key)
     
     async def get_events_for_date(self, month: int, day: int) -> List[Dict]:
-        """Fetch historical events for a specific date"""
-        
-        url = f"{self.base_url}/{month}/{day}"
-        
+        """Fetch historical events for a specific date using GPT-4o"""
+
+        # Convert month number to name for better readability
+        month_names = ["", "January", "February", "March", "April", "May", "June",
+                      "July", "August", "September", "October", "November", "December"]
+        month_name = month_names[month]
+
+        prompt = f"""Please provide a list of 15-20 notable historical events, births, and deaths that occurred on {month_name} {day}.
+
+Requirements:
+- Include a mix of events, births, and deaths from different time periods
+- Focus on genuinely significant historical moments (wars, discoveries, inventions, political events, etc.)
+- Prefer events that are at least 50 years old
+- Include the specific year for each event
+- Provide a brief but clear description of each event
+
+Return the data as a JSON array with this exact structure:
+[
+  {{
+    "type": "event",
+    "year": "1969",
+    "description": "Apollo 11 landed on the Moon"
+  }},
+  {{
+    "type": "birth",
+    "year": "1809",
+    "description": "Charles Darwin was born"
+  }},
+  {{
+    "type": "death",
+    "year": "1965",
+    "description": "Winston Churchill died"
+  }}
+]
+
+Provide ONLY the JSON array, no other text."""
+
         try:
-            if not self.session:
-                self.session = aiohttp.ClientSession()
-            
-            async with self.session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    
-                    # Combine events, births, and deaths
-                    all_events = []
-                    
-                    # Process events
-                    if 'data' in data and 'Events' in data['data']:
-                        for event in data['data']['Events']:
-                            all_events.append({
-                                'type': 'event',
-                                'year': event.get('year'),
-                                'description': event.get('text'),
-                                'links': event.get('links', [])
-                            })
-                    
-                    # Process births
-                    if 'data' in data and 'Births' in data['data']:
-                        for birth in data['data']['Births']:
-                            all_events.append({
-                                'type': 'birth',
-                                'year': birth.get('year'),
-                                'description': f"{birth.get('text')} was born",
-                                'links': birth.get('links', [])
-                            })
-                    
-                    # Process deaths  
-                    if 'data' in data and 'Deaths' in data['data']:
-                        for death in data['data']['Deaths']:
-                            all_events.append({
-                                'type': 'death',
-                                'year': death.get('year'),
-                                'description': f"{death.get('text')} died",
-                                'links': death.get('links', [])
-                            })
-                    
-                    logger.info(f"Fetched {len(all_events)} events for {month}/{day}")
-                    return all_events
-                else:
-                    logger.error(f"API returned status {response.status}")
-                    return self._get_fallback_events(month, day)
-                    
+            # Run in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+
+            def api_call():
+                return self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a historical research assistant. Provide accurate historical information in the requested JSON format."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    max_tokens=2000,
+                    temperature=0.7
+                )
+
+            response = await loop.run_in_executor(None, api_call)
+            content = response.choices[0].message.content.strip()
+
+            # Parse JSON response
+            # Sometimes GPT-4o wraps JSON in markdown code blocks, so handle that
+            if content.startswith("```"):
+                # Extract JSON from code block
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+                content = content.strip()
+
+            all_events = json.loads(content)
+
+            logger.info(f"Fetched {len(all_events)} events from GPT-4o for {month}/{day}")
+            return all_events
+
         except Exception as e:
-            logger.error(f"Error fetching historical events: {e}")
+            logger.error(f"Error fetching historical events from GPT-4o: {e}")
             return self._get_fallback_events(month, day)
     
     def select_best_event(self, events: List[Dict]) -> Dict:
@@ -238,8 +268,3 @@ class HistoryAPI:
             'year': '1843',
             'description': 'Charles Dickens published "A Christmas Carol", forever ruining December for those of us who prefer our spirits in bottles rather than chains'
         }
-    
-    async def close(self):
-        """Clean up the session"""
-        if self.session:
-            await self.session.close()
